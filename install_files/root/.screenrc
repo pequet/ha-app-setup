@@ -1,0 +1,11 @@
+screen -t "top" 1 top
+screen -t "" 2
+screen -t "" 3
+screen -t "" 4
+altscreen on
+hardstatus on
+hardstatus alwayslastline
+startup_message off
+termcapinfo xterm ti@:te@
+hardstatus string " %{= kC}%-w%{.rW}%n %t%{-}%+w %=%{..C} %H %{..C} %m/%d "
+defscrollback 1000

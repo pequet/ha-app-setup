@@ -1,0 +1,35 @@
+#!/bin/bash
+
+DATABASES=([DB_NAMES])
+MYSQL_USER="[MYSQLDUMP_USER]"
+MYSQL_PASSWORD="[MYSQLDUMP_PASSWORD]"
+MYSQL_HOST="[MYSQL_HOST]"
+
+MYSQL_BIN="$(which mysql)"
+MYSQLDUMP_BIN="$(which mysqldump)"
+STORE_FOLDER="/var/www/BACKUPS/databases"
+
+TODAYTIME=$(date +"%Y-%m-%d_%H-%M-%S")
+
+for db in "${DATABASES[@]}"
+do
+
+  DB_PATH=$STORE_FOLDER/$db
+
+  if [ ! -d "$DB_PATH" ]; then
+    mkdir -p "$DB_PATH"
+  fi
+
+  HOURLY_PATH=$DB_PATH/hourly
+
+  if [ ! -d "$HOURLY_PATH" ]; then
+    mkdir -p "$HOURLY_PATH"
+  fi
+
+  # delete old (+1 will keep 2+ days)
+  find $HOURLY_PATH -type f -mtime +0 -delete
+
+  #hourly
+  $MYSQLDUMP_BIN -u $MYSQL_USER -h $MYSQL_HOST -p$MYSQL_PASSWORD $db | gzip -9 > $HOURLY_PATH/$TODAYTIME.sql.gz
+
+done

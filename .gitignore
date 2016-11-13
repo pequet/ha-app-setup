@@ -1,0 +1,16 @@
+config.sh
+myfiles/etc/letsencrypt/archive/*
+myfiles/etc/letsencrypt/renewal/*
+keepalived*
+!/install_files/etc/keepalived*
+!/install_files/etc/keepalived/keepalived*
+!/install_files/etc/init/keepalived*
+!/install_files/etc/systemd/system/keepalived*
+ee
+*.txt
+*.private
+*~
+.DS_Store
+Thumbs.db
+!*.gitkeep
+

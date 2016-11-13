@@ -1,0 +1,35 @@
+#!/bin/bash
+
+EMAIL_TO=[CLAMSCAN_DESTEMAIL]
+EMAIL_FROM=[CLAMSCAN_SENDEREMAIL]  
+NAME_FROM=[CLAMSCAN_SENDERNAME]  
+ 
+LOGFILE="/var/log/clamav/clamav-$(date +'%Y-%m-%d').log"
+DIRTOSCAN="/var/www"
+
+for S in ${DIRTOSCAN}; do
+    DIRSIZE=$(du -sh "$S" 2>/dev/null | cut -f1)
+
+    echo "Starting a daily scan of "$S" directory."
+    echo "Amount of data to be scanned is $DIRSIZE"
+
+    clamscan -riv "$S" >> "$LOGFILE"
+
+    # get the value of "Infected lines"
+    MALWARE=$(tail "$LOGFILE"|grep Infected|cut -d" " -f3)
+
+    # if the value is not equal to zero, send an email with the log file attached
+    if [[ "$MALWARE" -ne "0" ]];then
+        
+        MAIL="Folder scanned: $S
+Amount of data scanned: $DIRSIZE
+"
+#$(cat $LOGFILE)"
+        
+        # echo "$MAIL"|sendmail $EMAIL_TO
+        echo "$MAIL"|mail -A $LOGFILE  -s "[Clamscan] Files Infected ($MALWARE)" -a "From: $NAME_FROM <$EMAIL_FROM>" $EMAIL_TO
+
+    fi 
+done
+
+exit 0

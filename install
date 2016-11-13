@@ -1,0 +1,710 @@
+#!/bin/bash
+
+# ha-app-setup v1.0 november 10, 2016
+
+# iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii
+
+# same install script for both the MASTER and STANDBY server
+
+# iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii
+
+# preflight
+
+# ----------------------------------------------------------------------
+
+main_script_loaded=1
+dir=$(dirname $(readlink -f $0))
+dir_install=$dir/install_files
+dir_includes=$dir_install/includes
+dir_current=$(pwd)
+
+subdomains_conf_suffix="_subdomains"
+shell_colors_arr=('\033[0m' '\033[0;36m' '\033[0;34m' '\033[0;35m' '\033[0;32m')
+
+# load functions
+source $dir_includes/inc_functions.sh
+
+# stop if ./config.sh is not readable
+chmod +x $dir/config.sh
+if [[ -f $dir/config.sh && -x $dir/config.sh ]]
+then
+    source $dir/config.sh
+else
+    echo -e "\033[0;31mconfig.sh must be present and readable.\033[0m"
+    exit
+fi
+
+# ----------------------------------------------------------------------
+
+# install [site add <domain.name>] [wpmu|wp] [letsencrypt] (any order)
+
+# ----------------------------------------------------------------------
+
+while test $# -gt 0
+do
+    case "$1" in
+        help)
+            help=1
+            ;;
+        site)
+            action="site_$2"
+            site=$3
+            ;;
+        wp)
+            sitetype=wp
+            ;;
+        wpmu)
+            sitetype=wpmu
+            ;;
+        letsencrypt)
+            ssl=1
+            ;;
+    esac
+    shift
+done
+
+# ----------------------------------------------------------------------
+
+if [[ $help == 1 ]]
+then
+
+    cat << EOF
+Usage:
+
+ ./install
+
+Add a single site to your setup:
+
+ ./install site add domain.name [wpmu|wp] [letsencrypt]
+
+   wpmu         wordpress multisite
+   wp           wordpress site
+   letsencrypt  adds a new certificate
+                or imports an existing certificate from ./myfiles/etc/letsencrypt/archive
+                                                    and ./myfiles/etc/letsencrypt/renewal
+
+EOF
+    exit
+
+fi
+
+# ----------------------------------------------------------------------
+
+if [[ $action == "site_add" ]]
+then
+
+    if [[ $site != *"."* ]]
+    then
+        echo -e "\033[0;31mInvalid site name \"$site\".\033[0m"
+        exit
+    fi
+
+    echo
+    if [[ $sitetype == "wpmu" ]]
+    then
+        # log everything
+        exec 1> >(tee -a $dir/logs_$site.txt) 2>&1
+        let counter++; title "$site (WP Multisite)"
+        source $dir_includes/inc_sites_wpmu.sh;
+        arr_update=config_wpmultisites_sites_arr
+    elif [[ $sitetype == "wp" ]]
+    then
+        # log everything
+        exec 1> >(tee -a $dir/logs_$site.txt) 2>&1
+        let counter++; title "$site (WP)"
+        source $dir_includes/inc_sites_wp.sh;
+        arr_update=config_wp_sites_arr
+    else
+        # log everything
+        exec 1> >(tee -a $dir/logs_$site.txt) 2>&1
+        let counter++; title "$site"
+        source $dir_includes/inc_sites_empty.sh;
+        arr_update=config_empty_sites_arr
+    # else
+    #     echo -e "\033[0;31mwhat is \"$4\".\033[0m"
+    #     exit 0
+    fi
+
+    sed -i -e 's|'$arr_update'=(|'$arr_update'=('$site' |g' $dir/config.sh
+    msg=" - $site was added to the variable $arr_update in your config.sh\n"
+
+    echo
+    if [[ $ssl == 1 ]]
+    then
+        let counter++; title "$site (letsencrypt)"
+        source $dir_includes/inc_sites_letsencrypt.sh;
+        sed -i -e 's|config_ssl_sites_arr=(|config_ssl_sites_arr=('$site' |g' $dir/config.sh
+        msg+=" - $site was added to the variable config_ssl_sites_arr in your config.sh\n"
+    fi
+
+    cat << EOF
+
+Please note:
+ $(echo -e $msg)
+
+You may want to add the database name in:
+ - the config_db_names variable in config.sh
+ - /etc/cron.daily/mysqldump_daily
+ - /etc/cron.hourlyly/mysqldump_hourly
+
+EOF
+
+    title "Done. Enjoy!☺︎"
+    sleep 0.5
+    exit
+fi
+
+# ----------------------------------------------------------------------
+
+# install
+
+# ----------------------------------------------------------------------
+
+# stop if there is a ./logs.txt
+if [[ -f $dir/logs.txt ]]
+then
+    echo -e "\033[0;31mlogs.txt indicates that the installer already ran.\033[0m"
+    exit
+else
+    # log everything
+    # exec 1> >(tee -a $dir/logs.txt) 2>&1
+    exec &> >(tee -a $dir/logs.txt)  
+fi
+
+# ----------------------------------------------------------------------
+
+# get server ips
+this_privateip=$(ip addr | grep 'state UP' -A2 | tail -n1 | awk '{print $2}' | cut -f1  -d'/')
+
+# check it is one of the two in config
+if [[ $this_privateip != $config_server1_private_ip && $this_privateip != $config_server2_private_ip ]]
+then
+    echo -e "\033[0;31mThis server ($this_privateip) is neither of the two IP specified in config.sh: $config_server1_private_ip and $config_server2_private_ip."
+    exit
+fi
+
+if [ $this_privateip != $config_server1_private_ip ]
+then
+    other_privateip=$config_server1_private_ip
+else
+    other_privateip=$config_server2_private_ip
+fi
+
+# # WHICH IS THE MASTER
+# while true; do
+#     read -p "Is this the $(tput bold)M$(tput sgr0)ASTER or $(tput bold)B$(tput sgr0)ACKUP server? ($this_privateip) " mb
+#     case $mb in
+#         [Mm][Aa][Ss][Tt][Ee][Rr]|[Mm] )
+#             MASTER_PRIVATEIP=$this_privateip
+#             echo -e "\033[1;33mThis IP is $this_privateip (MASTER)."
+#             echo -e "\033[1;33mThe other IP is $other_privateip."
+#             echo -e "\033[1;33mThe BACKUP server must be reachable and $(tput bold)$config_rsync_user$(tput sgr0) created in order to install."
+#             break;;
+#         [Bb][Aa][Cc][Kk][Uu][Pp]|[Bb] )
+#             MASTER_PRIVATEIP=$other_privateip
+#             echo -e "\033[1;33mThis IP is $this_privateip."
+#             echo -e "\033[1;33mThe other IP is $other_privateip (MASTER)."
+#             break;;
+#         * )
+#             echo -e "\033[0;31mPlease enter $(tput bold)M$(tput sgr0)\033[0;31m or $(tput bold)B.$(tput sgr0)"
+#     esac
+# done
+#
+# # CONFIRM
+# read -r -p "Please confirm [Y/n] " yn
+# if [[ $yn != "Y" && $yn != "y"  ]]
+# then
+#     exit;
+# fi
+
+# nb: we create a rsync user on both servers
+ssh_users_arr="$config_ftp_user $config_rsync_user"
+
+# build an array with services as we install them
+# declare -a installed_arr
+# installed_arr=("${installed_arr[@]}" "nginx")
+# echo ${installed_arr[@]}
+
+# how many things are we going to install
+install_total=$((11+${#config_wpmultisites_sites_arr[@]}+${#config_wp_sites_arr[@]}+${#config_empty_sites_arr[@]}+${#config_ssl_sites_arr[@]}))
+if [[ config_install_trader==1 ]]; then let install_total++; fi
+if [[ config_install_fail2ban==1 ]]; then let install_total++; fi
+if [[ config_install_chkrootkit==1 ]]; then let install_total++; fi
+if [[ config_install_clamscan==1 ]]; then let install_total++; fi
+if [[ config_install_newrelic==1 ]]; then let install_total=$install_total+4; fi
+
+# ----------------------------------------------------------------------
+
+# start
+
+# ----------------------------------------------------------------------
+
+apt-get update && apt-get upgrade -y && apt-get autoremove -y && apt-get autoclean
+apt-get -y install bc
+
+# ----------------------------------------------------------------------
+
+# easyengine
+
+# ----------------------------------------------------------------------
+
+let counter++; progressbar; title easyengine
+
+wget -qO $dir/ee rt.cx/ee -P $dir && sudo bash $dir/ee 
+source /etc/bash_completion.d/ee_auto.rc
+ee stack install --php7
+ee stack install --nginx
+
+# ----------------------------------------------------------------------
+
+# ssh users
+
+# ----------------------------------------------------------------------
+
+let counter++; progressbar; title ssh users
+
+# for rsync
+apt-get -y install bindfs
+
+for user in ${ssh_users_arr[@]}
+do
+    let counter++; progressbar; title $user
+    adduser $user --gecos ",,,,"
+    mkdir -p /home/$user/www
+    chown -Rf $user:$user /home/$user/www
+    chmod -Rf 770 /home/$user/www
+    echo "bindfs#/var/www /home/$user/www fuse force-user=$user,force-group=$user,create-for-user=www-data,create-for-group=www-data,create-with-perms=0770,chgrp-ignore,chown-ignore,chmod-ignore 0 0" >> /etc/fstab
+    mount /home/$user/www
+done
+
+echo >> /etc/ssh/sshd_config # we need to add a line break...
+echo "AllowUsers $ssh_users_arr" >> /etc/ssh/sshd_config
+
+# ----------------------------------------------------------------------
+
+# packages
+
+# ----------------------------------------------------------------------
+
+let counter++; progressbar; title packages
+
+# for high availability with keepalived
+apt-get -y install build-essential
+apt-get -y install libssl-dev
+apt-get -y install python-pip
+
+apt-get -y install python-requests
+
+# for time
+apt-get -y install ntp
+
+# ----------------------------------------------------------------------
+
+# preferences
+
+# ----------------------------------------------------------------------
+
+export VISUAL=nano;
+timedatectl set-timezone America/New_York
+
+# ----------------------------------------------------------------------
+
+# screen
+
+# ----------------------------------------------------------------------
+
+apt-get install -y screen
+cp $dir/install_files/root/.screenrc ~/
+
+# ----------------------------------------------------------------------
+
+# mail
+
+# ----------------------------------------------------------------------
+
+let counter++; progressbar; title mail
+
+# apt-get install -y sendmail
+#
+# # adding the host name to /etc/hosts for sendmail to work properly
+# # SHOULD WE UPDATE localhost.localdomain TO NICE domain name
+# # /etc/hosts
+# # -- 127.0.0.1 localhost
+# # ++ 127.0.0.1 localhost.localdomain localhost $HOSTNAME
+# # we do so ignoring the note at the top of /etc/hosts
+# # see https://www.digitalocean.com/community/questions/why-the-system-ubuntu-14-04-is-configured-manage_etc_hosts-as-true-by-default
+#
+# HOSTNAME=$(hostname)
+# sed -i -e 's|127.0.0.1 localhost|127.0.0.1 localhost.localdomain localhost '$HOSTNAME'|g' /etc/hosts
+
+apt-get install -y mailutils
+
+# ----------------------------------------------------------------------
+
+# trader
+
+# ----------------------------------------------------------------------
+
+
+if [ $config_install_trader -eq 1 ]
+then
+
+    let counter++; progressbar; title php trader
+
+    apt-get -y install php7.0-dev
+    pecl install trader
+    echo "extension=trader.so" >> /etc/php/$config_php_version/fpm/php.ini
+    echo "extension=trader.so" >> /etc/php/$config_php_version/cli/php.ini
+
+fi
+
+# ----------------------------------------------------------------------
+
+# keepalived
+
+# ----------------------------------------------------------------------
+
+
+if [ $config_install_keepalived -eq 1 ]
+then
+
+    let counter++; progressbar; title high availability
+
+    wget http://www.keepalived.org/software/keepalived-$config_keepalived_version.tar.gz -P $dir
+    tar xzvf $dir/keepalived* -C $dir
+    rm $dir/keepalived-$config_keepalived_version.tar.gz
+    cd $dir/keepalived*
+    ./configure
+    make
+    make install
+    cd $dir_current
+    cp $dir/install_files/etc/init/keepalived.conf /etc/init/
+    mkdir -p /etc/keepalived
+    cp $dir/install_files/etc/keepalived/keepalived.conf /etc/keepalived/
+    sed -i -e 's|\[this_privateip\]|'$this_privateip'|g' /etc/keepalived/keepalived.conf
+    sed -i -e 's|\[other_privateip\]|'$other_privateip'|g' /etc/keepalived/keepalived.conf
+    sed -i -e 's|\[config_keepalived_password\]|'$config_keepalived_password'|g' /etc/keepalived/keepalived.conf
+    cp $dir/install_files/etc/keepalived/master.sh /etc/keepalived/
+    sed -i -e 's|\[config_digitalocean_api_token\]|'$config_digitalocean_api_token'|g' /etc/keepalived/master.sh
+    sed -i -e 's|\[config_floating_ip\]|'$config_floating_ip'|g' /etc/keepalived/master.sh
+    chmod +x /etc/keepalived/master.sh
+    export LC_ALL=C
+    pip install --upgrade pip
+    pip install requests
+    cp $dir/install_files/etc/systemd/system/keepalived.service /etc/systemd/system/
+    systemctl preset keepalived.service
+    systemctl start keepalived.service
+
+fi
+
+# # ----------------------------------------------------------------------
+# # RSYNC
+# # ----------------------------------------------------------------------
+#
+# if [ $MASTER_PRIVATEIP == $this_privateip ]
+# then
+#
+#     let counter++
+#     if [ $counter -eq 5 ]; then counter=1; fi
+#     printf ${shell_colors_array[$counter]}
+#     toilet -f future "RSYNC (MASTER>BACKUP)"
+#
+#     # this part exists also in the reset_rsync_access.sh
+#
+#     # check if there is already a key in ~/.ssh/id_rsa.pub
+#     if [[ -f ~/.ssh/id_rsa.pub ]]
+#     then
+#         echo "~/.ssh/id_rsa.pub key already exists"
+#     else
+#         ssh-keygen
+#     fi
+#     ssh-copy-id -i ~/.ssh/id_rsa.pub $config_rsync_user@$other_privateip
+#
+#     cp $dir/install_files/etc/cron.hourly/rsync_www_hourly /etc/cron.hourly
+#     sed -i -e 's|\[OTHER_PRIVATEID\]|'$other_privateip'|g' /etc/cron.hourly/rsync_www_hourly
+#     sed -i -e 's|\[config_rsync_user\]|'$config_rsync_user'|g' /etc/cron.hourly/rsync_www_hourly
+#     chmod 755 /etc/cron.hourly/rsync_www_hourly
+#
+# fi
+
+# ----------------------------------------------------------------------
+
+# sites
+
+# ----------------------------------------------------------------------
+
+
+# WP MULTISITES
+
+for site in "${config_wpmultisites_sites_arr[@]}"
+do
+    let counter++; progressbar; title "$site (wp multisite)"
+    source $dir_includes/inc_sites_wpmu.sh
+done
+
+# WP SITES
+
+for site in "${config_wp_sites_arr[@]}"
+do
+    let counter++; progressbar; title "$site (wp)"
+    source $dir_includes/inc_sites_wp.sh
+done
+
+# EMPTY SITES
+
+for site in "${config_empty_sites_arr[@]}"
+do
+    let counter++; progressbar; title "$site"
+    source $dir_includes/inc_sites_empty.sh
+done
+
+# ----------------------------------------------------------------------
+
+# folders
+
+# ----------------------------------------------------------------------
+
+for folder in 'BACKUPS' 'TRASH'
+do
+    DB_PATH=/var/www/$folder
+    if [ ! -d "$DB_PATH" ]; then
+        mkdir -p "$DB_PATH"
+    fi
+    chown www-data:www-data $DB_PATH
+done
+
+# ----------------------------------------------------------------------
+
+# cron
+
+# ----------------------------------------------------------------------
+
+
+# daily archive
+cp $dir/install_files/etc/cron.daily/archive_www_daily /etc/cron.daily
+chmod 755 /etc/cron.daily/archive_www_daily
+
+# daily mysqldump
+cp $dir/install_files/etc/cron.daily/mysqldump_daily /etc/cron.daily
+sed -i -e 's|\[DB_NAMES\]|'"$config_db_names"'|g'  /etc/cron.daily/mysqldump_daily
+sed -i -e 's|\[MYSQLDUMP_USER\]|'$config_mysqldump_user'|g'  /etc/cron.daily/mysqldump_daily
+sed -i -e 's|\[MYSQLDUMP_PASSWORD\]|'$config_mysqldump_password'|g'  /etc/cron.daily/mysqldump_daily
+sed -i -e 's|\[MYSQL_HOST\]|'$config_mysql_host'|g'  /etc/cron.daily/mysqldump_daily
+chmod 755 /etc/cron.daily/mysqldump_daily
+
+# hourly mysqldump
+cp $dir/install_files/etc/cron.hourly/mysqldump_hourly /etc/cron.hourly
+sed -i -e 's|\[DB_NAMES\]|'"$config_db_names"'|g'  /etc/cron.hourly/mysqldump_hourly
+sed -i -e 's|\[MYSQLDUMP_USER\]|'$config_mysqldump_user'|g'  /etc/cron.hourly/mysqldump_hourly
+sed -i -e 's|\[MYSQLDUMP_PASSWORD\]|'$config_mysqldump_password'|g'  /etc/cron.hourly/mysqldump_hourly
+sed -i -e 's|\[MYSQL_HOST\]|'$config_mysql_host'|g'  /etc/cron.hourly/mysqldump_hourly
+chmod 755 /etc/cron.hourly/mysqldump_hourly
+
+# ----------------------------------------------------------------------
+
+# letsencrypt
+
+# ----------------------------------------------------------------------
+
+for site in "${config_ssl_sites_arr[@]}";
+do
+    let counter++; progressbar; title "$site (letsencrypt)"
+    source $dir_includes/inc_sites_letsencrypt.sh
+done
+
+# ----------------------------------------------------------------------
+
+# fail2ban
+
+# ----------------------------------------------------------------------
+
+
+if [ $config_install_fail2ban -eq 1 ]
+then
+    let counter++; progressbar; title fail2ban
+
+    apt-get -y install fail2ban iptables-persistent
+    cp $dir/install_files/etc/fail2ban/jail.local /etc/fail2ban
+    sed -i -e 's|\[FAIL2BAN_YOUR_HOMEIP\]|'$config_fail2ban_your_homeip'|g' /etc/fail2ban/jail.local
+    sed -i -e 's|\[FAIL2BAN_DESTEMAIL\]|'$config_fail2ban_destemail'|g' /etc/fail2ban/jail.local
+    sed -i -e 's|\[FAIL2BAN_SENDEREMAIL\]|'$config_fail2ban_senderemail'|g' /etc/fail2ban/jail.local
+    sed -i -e 's|\[FAIL2BAN_SENDERNAME\]|'$config_fail2ban_sendername'|g' /etc/fail2ban/jail.local
+
+    cp $dir/install_files/etc/fail2ban/action.d/iptables-multiport-permanent.conf /etc/fail2ban/action.d
+    cp $dir/install_files/etc/fail2ban/ip.blacklist /etc/fail2ban # ENJOY
+
+    service fail2ban stop
+    iptables -A INPUT -i lo -j ACCEPT
+    iptables -A INPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
+    iptables -A INPUT -p tcp --dport 22 -j ACCEPT
+    iptables -A INPUT -p tcp -m multiport --dports 80,443 -j ACCEPT
+    iptables -A INPUT -j DROP
+    # might have to run a second time for the config to take effect after reboot
+    # dpkg-reconfigure iptables-persistent
+    service fail2ban start
+fi
+
+# ----------------------------------------------------------------------
+
+# clamscan
+
+# ----------------------------------------------------------------------
+
+
+if [ $config_install_clamscan -eq 1 ]
+then
+    let counter++; progressbar; title clamscan
+
+    apt-get -y install clamav clamav-daemon
+    /etc/init.d/clamav-freshclam stop
+    freshclam -v
+    /etc/init.d/clamav-freshclam start
+
+    cp $dir/install_files/etc/cron.daily/clamscan_daily /etc/cron.daily
+    sed -i -e 's|\[CLAMSCAN_DESTEMAIL\]|'$config_clamscan_destemail'|g' /etc/cron.daily/clamscan_daily
+    sed -i -e 's|\[CLAMSCAN_SENDEREMAIL\]|'$config_clamscan_senderemail'|g' /etc/cron.daily/clamscan_daily
+    sed -i -e 's|\[CLAMSCAN_SENDERNAME\]|'$config_clamscan_sendername'|g' /etc/cron.daily/clamscan_daily
+    chmod 755 /etc/cron.daily/clamscan_daily
+fi
+
+# ----------------------------------------------------------------------
+
+# chkrootkit
+
+# ----------------------------------------------------------------------
+
+
+if [ $config_install_chkrootkit -eq 1 ]
+then
+    let counter++; progressbar; title chkrootkit
+
+    apt-get install chkrootkit
+    sed -i -e 's|RUN_DAILY="true"|RUN_DAILY="false"|g' /etc/chkrootkit.conf
+
+fi
+
+# ----------------------------------------------------------------------
+
+# newrelic
+
+# ----------------------------------------------------------------------
+
+
+if [ $config_install_newrelic -eq 1 ]
+then
+
+    let counter++; progressbar; title newrelic
+
+    # NEWRELIC
+
+    # update reps for sysmond
+    echo 'deb http://apt.newrelic.com/debian/ newrelic non-free' | sudo tee /etc/apt/sources.list.d/newrelic.list
+    wget -O- https://download.newrelic.com/548C16BF.gpg -P $dir | apt-key add -
+
+    # update reps for nginx-nr-agent
+    echo >> /etc/apt/sources.list
+    echo "deb http://nginx.org/packages/ubuntu/ xenial nginx" >> /etc/apt/sources.list
+    echo "deb-src http://nginx.org/packages/ubuntu/ xenial nginx" >> /etc/apt/sources.list
+
+    wget http://nginx.org/keys/nginx_signing.key -P $dir
+    apt-key add $dir/nginx_signing.key
+    rm $dir/nginx_signing.key
+
+    # now that we have all keys update only once
+    apt-get update
+
+    let counter++; progressbar; title newrelic-sysmond
+
+    apt-get install -y newrelic-sysmond
+    nrsysmond-config --set license_key=$config_newrelic_license
+    systemctl start newrelic-sysmond
+    # service newrelic-sysmond status
+
+    # PHP PLUGIN
+
+    let counter++; progressbar; title newrelic-php5
+
+    apt-get install -y newrelic-php5
+    # newrelic-install install
+
+    # NGINX PLUGIN
+
+    let counter++; progressbar; title newrelic nginx-nr-agent
+
+    apt-get install -y nginx-nr-agent
+
+    HOSTNAME=$(hostname)
+
+    # edit .ini
+    sed -i -e 's|YOUR_LICENSE_KEY_HERE|'"$config_newrelic_license"'|g' /etc/nginx-nr-agent/nginx-nr-agent.ini
+    sed -i -e 's|#name=examplecom|name='"$HOSTNAME"'|g' /etc/nginx-nr-agent/nginx-nr-agent.ini
+    sed -i -e 's|#url=http://example.com/status|url='"$config_nginx_status_url"'|g' /etc/nginx-nr-agent/nginx-nr-agent.ini
+    sed -i -e 's|#http_user=testuser|http_user='"$config_auth_user"'|g' /etc/nginx-nr-agent/nginx-nr-agent.ini
+    sed -i -e 's|#http_pass=testpass|http_pass='"$config_auth_password"'|g' /etc/nginx-nr-agent/nginx-nr-agent.ini
+
+    service nginx-nr-agent start
+
+fi
+
+# ----------------------------------------------------------------------
+
+# edit x-powered-by header
+
+# ----------------------------------------------------------------------
+
+let counter++; progressbar; title "x-powered-by"
+
+poweredby=$(cat /etc/nginx/nginx.conf | grep -o 'add_header X-Powered-By \".*' | cut -f 2 -d '"')
+
+read -r -p "Edit the X-Powered-By header? [$poweredby] (# to comment the line) " pb
+if [[ $pb == "#" ]]
+then
+    sed -i -e 's|add_header X-Powered-By|# add_header X-Powered-By|g' /etc/nginx/nginx.conf
+    echo Done.
+elif [[ $pb != $poweredby ]]
+then
+    sed -i -e 's|\"'$poweredby'\"|\"'$pb'\"|g' /etc/nginx/nginx.conf
+    echo Done.
+fi
+
+# ----------------------------------------------------------------------
+
+# http auth
+
+# ----------------------------------------------------------------------
+
+let counter++; progressbar; title "http auth"
+
+ee secure --auth
+
+# ----------------------------------------------------------------------
+
+# clean
+
+# ----------------------------------------------------------------------
+
+let counter++; progressbar;
+
+apt-get -fy install
+ee stack remove --php
+
+rm -Rf $dir/keepalived*
+rm $dir/ee
+apt-get autoremove -y && apt-get autoclean -y
+service nginx restart
+
+# ----------------------------------------------------------------------
+
+echo
+let counter++; title "done! have fun with your new server!☺︎"
+printf ${shell_colors_arr[0]}
+echo "Check in $dir/logs.txt that everything looks alright."
+if [ $config_install_newrelic -eq 1 ]
+then
+    echo "Also note that Newrelic might not fully run only after a reboot."
+fi
+exit
+
+# ----------------------------------------------------------------------
+
+# end

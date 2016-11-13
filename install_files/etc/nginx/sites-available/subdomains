@@ -1,0 +1,32 @@
+
+server {
+
+    listen 80; # default_server;
+    listen [::]:80; # default_server;
+
+    server_name 
+		*.[SITE_DOMAIN]
+    ;
+
+if ($scheme = https) {
+  return 301 http://$host$request_uri;
+}
+
+    # Uncomment the following line for domain mapping
+    # server_name_in_redirect off;
+
+    access_log /var/log/nginx/[SITE_DOMAIN].access.log rt_cache;
+    error_log /var/log/nginx/[SITE_DOMAIN].error.log;
+
+    root /var/www/[SITE_DOMAIN]/htdocs;
+    
+    index index.php index.html index.htm;
+
+    include common/php7.conf;  
+    
+    include common/wpcommon-php7.conf;
+    include common/locations-php7.conf;
+    include /var/www/[SITE_DOMAIN]/conf/nginx/*.conf;
+
+}
+

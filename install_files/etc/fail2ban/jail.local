@@ -1,0 +1,20 @@
+[DEFAULT]
+ignoreip = 127.0.0.1/8 [FAIL2BAN_YOUR_HOMEIP]
+# 1 week
+bantime = 604800
+# 3 attempts
+maxretry = 3
+# in 1 hour
+findtime = 3600
+sender = [FAIL2BAN_SENDEREMAIL]
+destemail = [FAIL2BAN_DESTEMAIL]
+sendername = [FAIL2BAN_SENDERNAME]
+mta = mail
+# soon enough you will want to change this to %(action_)s and stop receiving individual emails 
+# believe me
+action = %(action_mw)s
+banaction = iptables-multiport-permanent
+
+[nginx-http-auth]
+enabled = true
+

@@ -1,0 +1,45 @@
+#!/bin/bash
+
+BACKUP_FOLDER="/var/www"
+STORE_FOLDER="/var/www/BACKUPS/www"
+
+TODAY=$(date +"%Y-%m-%d")
+DAILY_DELETE_NAME="daily-"`date +"%Y-%m-%d" --date '3 days ago'`
+WEEKLY_DELETE_NAME="weekly-"`date +"%Y-%m-%d" --date '3 weeks ago'`
+MONTHLY_DELETE_NAME=`date +"%Y-%m-%d" --date '3 months ago'`
+
+folders=($BACKUP_FOLDER/*/)
+
+for folderpath in "${folders[@]}"
+do
+  folder=$(basename "$folderpath")
+  if [ $folder != "BACKUPS" ]
+  then
+  
+    THE_PATH=$STORE_FOLDER/$folder
+    echo $THE_PATH
+    if [ ! -d "$THE_PATH" ]; then
+      mkdir -p "$THE_PATH"
+    fi
+    rm -rf $THE_PATH/$DAILY_DELETE_NAME.sql.gz
+    rm -rf $THE_PATH/$WEEKLY_DELETE_NAME.sql.gz
+    rm -rf $THE_PATH/$MONTHLY_DELETE_NAME.sql.gz
+
+    # daily
+    # $MYSQLDUMP_BIN -u $MYSQL_USER -h $MYSQL_HOST -p$MYSQL_PASSWORD $folder | gzip -9 > $THE_PATH/daily-$TODAY.sql.gz
+    # tar -zcf $THE_PATH/daily-$TODAY.tar.gz /var/www/$folder
+    # cd into the target directory to prevent weird error message about paths starting with /
+    cd $THE_PATH && tar -zcf daily-$TODAY.tar.gz -C / var/www/$folder
+    
+    #weekly
+    if [ `date +%u` -eq 7 ];then
+      cp $THE_PATH/daily-$TODAY.sql.gz $THE_PATH/weekly-$TODAY.sql.gz
+    fi
+
+    #monthly
+    if [ `date +%d` -eq 25 ];then
+      cp $THE_PATH/daily-$TODAY.sql.gz $THE_PATH/monthly-$TODAY.sql.gz
+    fi
+  
+  fi
+done
