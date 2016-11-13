@@ -9,7 +9,7 @@ source $dir_includes/inc_loaded.sh
 # ----------------------------------------------------------------------
 
     rsync -a $dir/myfiles/etc/letsencrypt/archive/$site /etc/letsencrypt/archive
-    rsync -a $dir/myfiles/etc/letsencrypt/renewal/$site /etc/letsencrypt/renewal
+    rsync -a $dir/myfiles/etc/letsencrypt/renewal/$site.conf /etc/letsencrypt/renewal
 
     mkdir -p /etc/letsencrypt/live/$site
     ln -s /etc/letsencrypt/archive/$site/cert1.pem /etc/letsencrypt/live/$site/cert.pem
