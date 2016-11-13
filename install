@@ -120,9 +120,6 @@ then
         let counter++; title "$site"
         source $dir_includes/inc_sites_empty.sh;
         arr_update=config_empty_sites_arr
-    # else
-    #     echo -e "\033[0;31mwhat is \"$4\".\033[0m"
-    #     exit 0
     fi
 
     sed -i -e 's|'$arr_update'=(|'$arr_update'=('$site' |g' $dir/config.sh
@@ -189,33 +186,6 @@ then
 else
     other_privateip=$config_server2_private_ip
 fi
-
-# # WHICH IS THE MASTER
-# while true; do
-#     read -p "Is this the $(tput bold)M$(tput sgr0)ASTER or $(tput bold)B$(tput sgr0)ACKUP server? ($this_privateip) " mb
-#     case $mb in
-#         [Mm][Aa][Ss][Tt][Ee][Rr]|[Mm] )
-#             MASTER_PRIVATEIP=$this_privateip
-#             echo -e "\033[1;33mThis IP is $this_privateip (MASTER)."
-#             echo -e "\033[1;33mThe other IP is $other_privateip."
-#             echo -e "\033[1;33mThe BACKUP server must be reachable and $(tput bold)$config_rsync_user$(tput sgr0) created in order to install."
-#             break;;
-#         [Bb][Aa][Cc][Kk][Uu][Pp]|[Bb] )
-#             MASTER_PRIVATEIP=$other_privateip
-#             echo -e "\033[1;33mThis IP is $this_privateip."
-#             echo -e "\033[1;33mThe other IP is $other_privateip (MASTER)."
-#             break;;
-#         * )
-#             echo -e "\033[0;31mPlease enter $(tput bold)M$(tput sgr0)\033[0;31m or $(tput bold)B.$(tput sgr0)"
-#     esac
-# done
-#
-# # CONFIRM
-# read -r -p "Please confirm [Y/n] " yn
-# if [[ $yn != "Y" && $yn != "y"  ]]
-# then
-#     exit;
-# fi
 
 # nb: we create a rsync user on both servers
 ssh_users_arr="$config_ftp_user $config_rsync_user"
@@ -288,15 +258,9 @@ echo "AllowUsers $ssh_users_arr" >> /etc/ssh/sshd_config
 
 let counter++; progressbar; title packages
 
-# for high availability with keepalived
-apt-get -y install build-essential
-apt-get -y install libssl-dev
-apt-get -y install python-pip
-
-apt-get -y install python-requests
-
-# for time
-apt-get -y install ntp
+# build-essential libssl-dev python-pip are for high availability with keepalived
+# python-requests is for trader
+apt-get -y install build-essential libssl-dev python-pip python-requests ntp screen
 
 # ----------------------------------------------------------------------
 
@@ -313,7 +277,6 @@ timedatectl set-timezone America/New_York
 
 # ----------------------------------------------------------------------
 
-apt-get install -y screen
 cp $dir/install_files/root/.screenrc ~/
 
 # ----------------------------------------------------------------------
@@ -323,19 +286,6 @@ cp $dir/install_files/root/.screenrc ~/
 # ----------------------------------------------------------------------
 
 let counter++; progressbar; title mail
-
-# apt-get install -y sendmail
-#
-# # adding the host name to /etc/hosts for sendmail to work properly
-# # SHOULD WE UPDATE localhost.localdomain TO NICE domain name
-# # /etc/hosts
-# # -- 127.0.0.1 localhost
-# # ++ 127.0.0.1 localhost.localdomain localhost $HOSTNAME
-# # we do so ignoring the note at the top of /etc/hosts
-# # see https://www.digitalocean.com/community/questions/why-the-system-ubuntu-14-04-is-configured-manage_etc_hosts-as-true-by-default
-#
-# HOSTNAME=$(hostname)
-# sed -i -e 's|127.0.0.1 localhost|127.0.0.1 localhost.localdomain localhost '$HOSTNAME'|g' /etc/hosts
 
 apt-get install -y mailutils
 
@@ -381,12 +331,12 @@ then
     cp $dir/install_files/etc/init/keepalived.conf /etc/init/
     mkdir -p /etc/keepalived
     cp $dir/install_files/etc/keepalived/keepalived.conf /etc/keepalived/
-    sed -i -e 's|\[this_privateip\]|'$this_privateip'|g' /etc/keepalived/keepalived.conf
-    sed -i -e 's|\[other_privateip\]|'$other_privateip'|g' /etc/keepalived/keepalived.conf
-    sed -i -e 's|\[config_keepalived_password\]|'$config_keepalived_password'|g' /etc/keepalived/keepalived.conf
+    sed -i -e 's|\[THIS_PRIVATEIP\]|'$this_privateip'|g' /etc/keepalived/keepalived.conf
+    sed -i -e 's|\[OTHER_PRIVATEIP\]|'$other_privateip'|g' /etc/keepalived/keepalived.conf
+    sed -i -e 's|\[KEEPALIVED_PASSWORD\]|'$config_keepalived_password'|g' /etc/keepalived/keepalived.conf
     cp $dir/install_files/etc/keepalived/master.sh /etc/keepalived/
-    sed -i -e 's|\[config_digitalocean_api_token\]|'$config_digitalocean_api_token'|g' /etc/keepalived/master.sh
-    sed -i -e 's|\[config_floating_ip\]|'$config_floating_ip'|g' /etc/keepalived/master.sh
+    sed -i -e 's|\[DIGITALOCEAN_API_TOKEN\]|'$config_digitalocean_api_token'|g' /etc/keepalived/master.sh
+    sed -i -e 's|\[FLOATING_IP\]|'$config_floating_ip'|g' /etc/keepalived/master.sh
     chmod +x /etc/keepalived/master.sh
     export LC_ALL=C
     pip install --upgrade pip
@@ -396,36 +346,6 @@ then
     systemctl start keepalived.service
 
 fi
-
-# # ----------------------------------------------------------------------
-# # RSYNC
-# # ----------------------------------------------------------------------
-#
-# if [ $MASTER_PRIVATEIP == $this_privateip ]
-# then
-#
-#     let counter++
-#     if [ $counter -eq 5 ]; then counter=1; fi
-#     printf ${shell_colors_array[$counter]}
-#     toilet -f future "RSYNC (MASTER>BACKUP)"
-#
-#     # this part exists also in the reset_rsync_access.sh
-#
-#     # check if there is already a key in ~/.ssh/id_rsa.pub
-#     if [[ -f ~/.ssh/id_rsa.pub ]]
-#     then
-#         echo "~/.ssh/id_rsa.pub key already exists"
-#     else
-#         ssh-keygen
-#     fi
-#     ssh-copy-id -i ~/.ssh/id_rsa.pub $config_rsync_user@$other_privateip
-#
-#     cp $dir/install_files/etc/cron.hourly/rsync_www_hourly /etc/cron.hourly
-#     sed -i -e 's|\[OTHER_PRIVATEID\]|'$other_privateip'|g' /etc/cron.hourly/rsync_www_hourly
-#     sed -i -e 's|\[config_rsync_user\]|'$config_rsync_user'|g' /etc/cron.hourly/rsync_www_hourly
-#     chmod 755 /etc/cron.hourly/rsync_www_hourly
-#
-# fi
 
 # ----------------------------------------------------------------------
 
