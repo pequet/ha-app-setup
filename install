@@ -330,6 +330,7 @@ then
     cd $dir_current
     cp $dir/install_files/etc/init/keepalived.conf /etc/init/
     mkdir -p /etc/keepalived
+    cp $dir/install_files/usr/local/bin/assign-ip /usr/local/bin
     cp $dir/install_files/etc/keepalived/keepalived.conf /etc/keepalived/
     sed -i -e 's|\[THIS_PRIVATEIP\]|'$this_privateip'|g' /etc/keepalived/keepalived.conf
     sed -i -e 's|\[OTHER_PRIVATEIP\]|'$other_privateip'|g' /etc/keepalived/keepalived.conf
