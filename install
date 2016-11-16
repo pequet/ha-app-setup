@@ -36,7 +36,7 @@ fi
 
 # ----------------------------------------------------------------------
 
-# install [site add <domain.name>] [wpmu|wp] [letsencrypt] (any order)
+# install [...]
 
 # ----------------------------------------------------------------------
 
@@ -45,6 +45,12 @@ do
     case "$1" in
         help)
             help=1
+            ;;
+        check)
+            check=1
+            ;;
+        update)
+            update=1
             ;;
         site)
             action="site_$2"
@@ -65,28 +71,58 @@ done
 
 # ----------------------------------------------------------------------
 
+# install help
+
+# ----------------------------------------------------------------------
+
 if [[ $help == 1 ]]
 then
-
-    cat << EOF
-Usage:
-
- ./install
-
-Add a single site to your setup:
-
- ./install site add domain.name [wpmu|wp] [letsencrypt]
-
-   wpmu         wordpress multisite
-   wp           wordpress site
-   letsencrypt  adds a new certificate
-                or imports an existing certificate from ./myfiles/etc/letsencrypt/archive
-                                                    and ./myfiles/etc/letsencrypt/renewal
-
-EOF
+    source $dir_includes/inc_help.sh;
     exit
 
 fi
+
+# ----------------------------------------------------------------------
+
+# install check
+
+# ----------------------------------------------------------------------
+
+if [[ $check == 1 ]]
+then
+    # log everything
+    logfile=$dir/check.txt
+    rm $logfile
+    exec 1> >(tee -a $logfile) 2>&1
+    source $dir_includes/inc_check.sh;
+    echo
+    echo "Output saved in $logfile"
+    sleep 0.5
+    exit 
+fi
+
+# ----------------------------------------------------------------------
+
+# install update
+
+# ----------------------------------------------------------------------
+
+if [[ $update == 1 ]]
+then
+    # log everything
+    logfile=$dir/update.txt
+    rm $logfile
+    exec 1> >(tee -a $logfile) 2>&1
+    source $dir_includes/inc_update.sh;
+    echo
+    echo "Output saved in $logfile"
+    sleep 0.5
+    exit 
+fi
+
+# ----------------------------------------------------------------------
+
+# install [site add <domain.name>] [wpmu|wp] [letsencrypt] (any order)
 
 # ----------------------------------------------------------------------
 
@@ -103,20 +139,26 @@ then
     if [[ $sitetype == "wpmu" ]]
     then
         # log everything
-        exec 1> >(tee -a $dir/logs_$site.txt) 2>&1
+        logfile=$dir/logs_$site.txt
+        rm $logfile
+        exec 1> >(tee -a $logfile) 2>&1
         let counter++; title "$site (WP Multisite)"
         source $dir_includes/inc_sites_wpmu.sh;
         arr_update=config_wpmultisites_sites_arr
     elif [[ $sitetype == "wp" ]]
     then
         # log everything
-        exec 1> >(tee -a $dir/logs_$site.txt) 2>&1
+        logfile=$dir/logs_$site.txt
+        rm $logfile
+        exec 1> >(tee -a $logfile) 2>&1
         let counter++; title "$site (WP)"
         source $dir_includes/inc_sites_wp.sh;
         arr_update=config_wp_sites_arr
     else
         # log everything
-        exec 1> >(tee -a $dir/logs_$site.txt) 2>&1
+        logfile=$dir/logs_$site.txt
+        rm $logfile
+        exec 1> >(tee -a $logfile) 2>&1  
         let counter++; title "$site"
         source $dir_includes/inc_sites_empty.sh;
         arr_update=config_empty_sites_arr

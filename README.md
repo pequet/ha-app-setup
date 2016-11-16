@@ -49,3 +49,12 @@ If you need to add another site later the syntax is:
 That's it. 
 
 ☺︎
+
+-
+Added: 
+
+```
+./install check
+./install update
+./install help
+```
