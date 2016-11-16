@@ -607,6 +607,11 @@ then
 
     service nginx-nr-agent start
 
+    cp /etc/newrelic/newrelic.cfg.template /etc/newrelic/newrelic.cfg
+    sed -i -e 's|#loglevel=info|loglevel=debug|g' /etc/newrelic/newrelic.cfg
+    /usr/sbin/update-rc.d newrelic-daemon defaults 90 10
+    /usr/sbin/update-rc.d newrelic-daemon enable
+
 fi
 
 # ----------------------------------------------------------------------
