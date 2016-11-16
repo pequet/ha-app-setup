@@ -92,7 +92,7 @@ if [[ $check == 1 ]]
 then
     # log everything
     logfile=$dir/check.txt
-    rm $logfile
+    if [ -f $logfile ]; then rm $logfile; fi
     exec 1> >(tee -a $logfile) 2>&1
     source $dir_includes/inc_check.sh;
     echo
@@ -111,7 +111,7 @@ if [[ $update == 1 ]]
 then
     # log everything
     logfile=$dir/update.txt
-    rm $logfile
+    if [ -f $logfile ]; then rm $logfile; fi
     exec 1> >(tee -a $logfile) 2>&1
     source $dir_includes/inc_update.sh;
     echo
@@ -140,7 +140,7 @@ then
     then
         # log everything
         logfile=$dir/logs_$site.txt
-        rm $logfile
+        if [ -f $logfile ]; then rm $logfile; fi
         exec 1> >(tee -a $logfile) 2>&1
         let counter++; title "$site (WP Multisite)"
         source $dir_includes/inc_sites_wpmu.sh;
@@ -149,7 +149,7 @@ then
     then
         # log everything
         logfile=$dir/logs_$site.txt
-        rm $logfile
+        if [ -f $logfile ]; then rm $logfile; fi
         exec 1> >(tee -a $logfile) 2>&1
         let counter++; title "$site (WP)"
         source $dir_includes/inc_sites_wp.sh;
@@ -157,7 +157,7 @@ then
     else
         # log everything
         logfile=$dir/logs_$site.txt
-        rm $logfile
+        if [ -f $logfile ]; then rm $logfile; fi
         exec 1> >(tee -a $logfile) 2>&1  
         let counter++; title "$site"
         source $dir_includes/inc_sites_empty.sh;
