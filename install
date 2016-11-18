@@ -607,11 +607,15 @@ then
 
     service nginx-nr-agent start
 
-    cp /etc/newrelic/newrelic.cfg.template /etc/newrelic/newrelic.cfg
-    sed -i -e 's|#loglevel=info|loglevel=debug|g' /etc/newrelic/newrelic.cfg
-    /usr/sbin/update-rc.d newrelic-daemon defaults 90 10
-    /usr/sbin/update-rc.d newrelic-daemon enable
+    # with /etc/newrelic/newrelic.cfg in place newrelic-daemon will not start at boot
+    # cp /etc/newrelic/newrelic.cfg.template /etc/newrelic/newrelic.cfg
+    # sed -i -e 's|#loglevel=info|loglevel=debug|g' /etc/newrelic/newrelic.cfg
 
+    # /usr/sbin/update-rc.d newrelic-daemon defaults 90 10
+    # /usr/sbin/update-rc.d newrelic-daemon enable
+
+    # start
+    # /etc/init.d/newrelic-daemon start
 fi
 
 # ----------------------------------------------------------------------
