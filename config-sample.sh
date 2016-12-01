@@ -13,6 +13,7 @@ config_server2_private_ip="" ### it doesn't matter which is MASTER and STANDBY
 
 config_wpmultisites_sites_arr=(site1.tld site2.tld) ### wp multisites
 config_wp_sites_arr=(site5.tld site6.tld) ### wp sites
+config_mysql_sites_arr=(site7.tld) ### wp sites
 config_empty_sites_arr=(site3.tld site4.tld) ### perhaps just mapped domains or subdomain names that need a ssl certificate
 config_ssl_sites_arr=(site1.tld site2.tld site3.tld) ### domain names from above that have a ssl certificate
 config_db_names="site_01 site_02 site_03 site_04" ### databases to set up mysqldump for
@@ -57,6 +58,16 @@ config_newrelic_license=""
 config_nginx_status_url="https://domain.tld/status"
 config_auth_user="" ### leave blank for none
 config_auth_password="" ### leave blank for none
+
+# newrelic-mysql
+config_install_newrelic_mysql=0
+config_newrelic_mysql_appname=""
+config_newrelic_mysql_user=""
+config_newrelic_mysql_password=""
+config_newrelic_mysql_newrelic_license=""
+
+# phpmyadmin
+config_install_phpmyadmin=0
 
 # iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii
 

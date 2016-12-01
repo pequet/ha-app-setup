@@ -8,6 +8,13 @@ source $dir_includes/inc_loaded.sh
 
 # ----------------------------------------------------------------------
 
+    if [ ! -d /etc/letsencrypt/archive]; then
+        mkdir -p /etc/letsencrypt/archive
+    fi
+    if [ ! -d /etc/letsencrypt/renewal]; then
+        mkdir -p /etc/letsencrypt/renewal
+    fi
+
     rsync -a $dir/myfiles/etc/letsencrypt/archive/$site /etc/letsencrypt/archive
     rsync -a $dir/myfiles/etc/letsencrypt/renewal/$site.conf /etc/letsencrypt/renewal
 

@@ -413,6 +413,14 @@ do
     source $dir_includes/inc_sites_wp.sh
 done
 
+# MYSQL SITES
+
+for site in "${config_mysql_sites_arr[@]}"
+do
+    let counter++; progressbar; title "$site (mysql)"
+    source $dir_includes/inc_sites_mysql.sh
+done
+
 # EMPTY SITES
 
 for site in "${config_empty_sites_arr[@]}"
@@ -548,6 +556,26 @@ fi
 
 # ----------------------------------------------------------------------
 
+# phpmyadmin
+
+# ----------------------------------------------------------------------
+
+if [ $config_install_phpmyadmin -eq 1 ]
+then
+    let counter++; progressbar; title phpmyadmin
+
+    ee stack install --phpmyadmin
+
+    # https://github.com/pequet/phpmyadmin-nginx-configuration-php7
+    mv /etc/nginx/sites-available/22222 /etc/nginx/sites-available/22222~
+    cp $dir/install_files/etc/nginx/sites-available/22222 /etc/nginx/sites-available
+    service nginx restart
+
+fi
+
+
+# ----------------------------------------------------------------------
+
 # newrelic
 
 # ----------------------------------------------------------------------
@@ -622,6 +650,30 @@ then
 
     # start
     # /etc/init.d/newrelic-daemon start
+
+fi
+
+if [ $config_install_newrelic_mysql -eq 1 ]
+then
+
+    let counter++; progressbar; title newrelic-mysql
+
+    apt-get install -y default-jre
+
+    cd ~/
+    LICENSE_KEY=$config_newrelic_mysql_newrelic_license bash -c "$(curl -sSL https://download.newrelic.com/npi/release/install-npi-linux-debian-x64.sh)"
+    cd ~/newrelic-npi
+    # ./npi available
+    ./npi install com.newrelic.plugins.mysql.instance
+    # edit ~/newrelic-npi/plugins/com.newrelic.plugins.mysql.instance/newrelic_mysql_plugin-2.0.0/config/plugin.json
+    sed -i -e 's|Localhost|'$config_newrelic_mysql_appname'|g' ~/newrelic-npi/plugins/com.newrelic.plugins.mysql.instance/newrelic_mysql_plugin-2.0.0/config/plugin.json
+    sed -i -e 's|USER_NAME_HERE|'$config_newrelic_mysql_user'|g' ~/newrelic-npi/plugins/com.newrelic.plugins.mysql.instance/newrelic_mysql_plugin-2.0.0/config/plugin.json
+    sed -i -e 's|USER_PASSWD_HERE|'$config_newrelic_mysql_password'|g' ~/newrelic-npi/plugins/com.newrelic.plugins.mysql.instance/newrelic_mysql_plugin-2.0.0/config/plugin.json
+    # edit ~/newrelic-npi/config/newrelic.json
+    service newrelic_plugin_com.newrelic.plugins.mysql.instance start
+    
+    cd dir_current
+
 fi
 
 # ----------------------------------------------------------------------
