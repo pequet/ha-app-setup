@@ -69,6 +69,14 @@ config_newrelic_mysql_newrelic_license=""
 # phpmyadmin
 config_install_phpmyadmin=0
 
+config_mysqldump_user='mysqldump'
+config_mysqldump_password=''
+config_newrelic_user='newrelic'
+config_newrelic_password=''
+config_mysql_user=''
+config_mysql_password=''
+config_mysql_table='domain_tld' 
+
 # iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii
 
 # index of locations for each variable

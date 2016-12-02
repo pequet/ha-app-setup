@@ -238,11 +238,12 @@ ssh_users_arr="$config_ftp_user $config_rsync_user"
 # echo ${installed_arr[@]}
 
 # how many things are we going to install
-install_total=$((11+${#config_wpmultisites_sites_arr[@]}+${#config_wp_sites_arr[@]}+${#config_empty_sites_arr[@]}+${#config_ssl_sites_arr[@]}))
+install_total=$((11+${#config_wpmultisites_sites_arr[@]}+${#config_wp_sites_arr[@]}+${#config_mysql_sites_arr[@]}+${#config_empty_sites_arr[@]}+${#config_ssl_sites_arr[@]}))
 if [[ config_install_trader==1 ]]; then let install_total++; fi
 if [[ config_install_fail2ban==1 ]]; then let install_total++; fi
 if [[ config_install_chkrootkit==1 ]]; then let install_total++; fi
 if [[ config_install_clamscan==1 ]]; then let install_total++; fi
+if [[ config_install_phpmyadmin==1 ]]; then let install_total++; fi
 if [[ config_install_newrelic==1 ]]; then let install_total=$install_total+4; fi
 
 # ----------------------------------------------------------------------
@@ -570,6 +571,22 @@ then
     mv /etc/nginx/sites-available/22222 /etc/nginx/sites-available/22222~
     cp $dir/install_files/etc/nginx/sites-available/22222 /etc/nginx/sites-available
     service nginx restart
+
+    # temp_password=(date | sha256sum)
+    # mysqladmin -u root password $temp_password
+
+    mysql -e "CREATE USER '$config_mysqldump_user'@'%' IDENTIFIED BY '$config_mysqldump_password';"
+    mysql -e "CREATE USER '$config_newrelic_user'@'localhost' IDENTIFIED BY '$config_newrelic_password';"
+    mysql -e "CREATE USER '$config_mysql_user'@'%' IDENTIFIED BY '$config_mysql_password';"
+    mysql -e "GRANT SELECT, LOCK TABLES ON * . * TO '$config_mysqldump_user'@'%';"
+    mysql -e "GRANT PROCESS, REPLICATION CLIENT ON * . * TO '$config_newrelic_user'@'localhost';"
+    mysql -e "GRANT ALL PRIVILEGES ON \`$config_mysql_table\`.* TO '$config_mysql_user'@'%' WITH GRANT OPTION;"
+    mysql -e "FLUSH PRIVILEGES;" 
+
+    # set password
+    read -s -p "MariaDB root Password: " mysql_password
+    echo
+    mysqladmin -u root password $mysql_password
 
 fi
 
