@@ -8,10 +8,10 @@ source $dir_includes/inc_loaded.sh
 
 # ----------------------------------------------------------------------
 
-    if [ ! -d /etc/letsencrypt/archive]; then
+    if [ ! -d /etc/letsencrypt/archive ]; then
         mkdir -p /etc/letsencrypt/archive
     fi
-    if [ ! -d /etc/letsencrypt/renewal]; then
+    if [ ! -d /etc/letsencrypt/renewal ]; then
         mkdir -p /etc/letsencrypt/renewal
     fi
 
