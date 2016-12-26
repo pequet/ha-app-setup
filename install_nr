@@ -1,0 +1,100 @@
+#!/bin/bash
+
+# ha-app-setup v1.0 november 10, 2016
+
+# iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii
+
+# same install script for both the MASTER and STANDBY server
+
+# iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii
+
+# preflight
+
+# ----------------------------------------------------------------------
+
+main_script_loaded=1
+dir=$(dirname $(readlink -f $0))
+dir_install=$dir/install_files
+dir_includes=$dir_install/includes
+dir_current=$(pwd)
+
+shell_colors_arr=('\033[0m' '\033[0;36m' '\033[0;34m' '\033[0;35m' '\033[0;32m')
+
+source $dir/config.sh
+
+# ----------------------------------------------------------------------
+
+# newrelic
+
+# ----------------------------------------------------------------------
+
+
+    # NEWRELIC
+
+    # update reps for sysmond
+    echo 'deb http://apt.newrelic.com/debian/ newrelic non-free' | sudo tee /etc/apt/sources.list.d/newrelic.list
+    wget -O- https://download.newrelic.com/548C16BF.gpg -P $dir | apt-key add -
+
+    # update reps for nginx-nr-agent
+    echo >> /etc/apt/sources.list
+    echo "deb http://nginx.org/packages/ubuntu/ xenial nginx" >> /etc/apt/sources.list
+    echo "deb-src http://nginx.org/packages/ubuntu/ xenial nginx" >> /etc/apt/sources.list
+
+    wget http://nginx.org/keys/nginx_signing.key -P $dir
+    apt-key add $dir/nginx_signing.key
+    rm $dir/nginx_signing.key
+
+    # now that we have all keys update only once
+    apt-get update
+
+    apt-get install -y newrelic-sysmond
+    nrsysmond-config --set license_key=$config_newrelic_license
+    systemctl start newrelic-sysmond
+    # service newrelic-sysmond status
+
+    # PHP PLUGIN
+
+    # let counter++; progressbar; title newrelic-php5
+
+    # apt-get install -y newrelic-php5
+    # newrelic-install install
+
+    # sed -i -e 's|\"PHP Application\"|\"'"$(hostname)"'\"|g' /etc/php/7.0/fpm/conf.d/newrelic.ini
+    # sed -i -e 's|\"PHP Application\"|\"'"$(hostname)"'\"|g' /etc/php/7.0/cli/conf.d/newrelic.ini
+
+    # NGINX PLUGIN
+
+    let counter++; progressbar; title newrelic nginx-nr-agent
+
+    apt-get install -y nginx-nr-agent
+
+    HOSTNAME=$(hostname)
+
+    # edit .ini
+    sed -i -e 's|YOUR_LICENSE_KEY_HERE|'"$config_newrelic_license"'|g' /etc/nginx-nr-agent/nginx-nr-agent.ini
+    sed -i -e 's|#name=examplecom|name='"$HOSTNAME"'|g' /etc/nginx-nr-agent/nginx-nr-agent.ini
+    sed -i -e 's|#url=http://example.com/status|url='"$config_nginx_status_url"'|g' /etc/nginx-nr-agent/nginx-nr-agent.ini
+    sed -i -e 's|#http_user=testuser|http_user='"$config_auth_user"'|g' /etc/nginx-nr-agent/nginx-nr-agent.ini
+    sed -i -e 's|#http_pass=testpass|http_pass='"$config_auth_password"'|g' /etc/nginx-nr-agent/nginx-nr-agent.ini
+
+    # mv /etc/php/7.0/fpm/conf.d/newrelic.ini /etc/php/7.0/fpm/conf.d/newrelic.ini~
+    # mv /etc/php/7.0/cli/conf.d/newrelic.ini /etc/php/7.0/cli/conf.d/newrelic.ini~
+
+    service nginx-nr-agent start
+
+    # with /etc/newrelic/newrelic.cfg in place newrelic-daemon will not start at boot
+    # cp /etc/newrelic/newrelic.cfg.template /etc/newrelic/newrelic.cfg
+    # sed -i -e 's|#loglevel=info|loglevel=debug|g' /etc/newrelic/newrelic.cfg
+
+    # /usr/sbin/update-rc.d newrelic-daemon defaults 90 10
+    # /usr/sbin/update-rc.d newrelic-daemon enable
+
+    # start
+    # /etc/init.d/newrelic-daemon start
+
+exit
+
+# ----------------------------------------------------------------------
+
+# end
+
