@@ -50,7 +50,6 @@ That's it.
 
 ☺︎
 
--
 Added: 
 
 ```
@@ -58,3 +57,8 @@ Added:
 ./install update
 ./install help
 ```
+
+Added: 
+
+- the OpenDNS I.P. addresses to the Network Interface
+- ask ftp_user if they want to su root upon log in 
