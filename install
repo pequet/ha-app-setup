@@ -726,6 +726,30 @@ ee secure --auth
 
 # ----------------------------------------------------------------------
 
+# add the opendns i.p. to config https://use.opendns.com/ (digitalocean uses the goog by default)
+
+# ----------------------------------------------------------------------
+
+sed -i -e 's|dns-nameservers 8.8.|dns-nameservers 208.67.222.222 208.67.220.220 8.8.|g' /etc/network/interfaces.d/50-cloud-init.cfg 
+
+# ----------------------------------------------------------------------
+
+# switch ftp_user to root upon log in
+
+# ----------------------------------------------------------------------
+
+echo "" >> /home/$config_ftp_user/.bashrc
+echo "# switch to root user" >> /home/$config_ftp_user/.bashrc
+echo "echo" >> /home/$config_ftp_user/.bashrc
+echo "read -r -p 'Log in as root user? [y/N] ' response" >> /home/$config_ftp_user/.bashrc
+echo "case \"\$response\" in" >> /home/$config_ftp_user/.bashrc
+echo "    [yY][eE][sS]|[yY])" >> /home/$config_ftp_user/.bashrc
+echo "        su root" >> /home/$config_ftp_user/.bashrc
+echo "        ;;" >> /home/$config_ftp_user/.bashrc
+echo "esac" >> /home/$config_ftp_user/.bashrc
+
+# ----------------------------------------------------------------------
+
 # clean
 
 # ----------------------------------------------------------------------
